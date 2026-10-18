@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Metric Movement Explainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&family=Source+Serif+4:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F3F2F7; --panel:#FFFFFF; --ink:#1D1B2B; --muted:#625F75; --line:#DAD7E6;
+  --accent:#5A44C8; --up:#1F7A4D; --down:#B23A32; --warn:#98660A; --band:#ECEAF4;
+  --serif:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --sans:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121019; --panel:#1B1826; --ink:#EAE8F3; --muted:#A19EB5; --line:#2E2A40;
+    --accent:#9C8CFF; --up:#58C58B; --down:#F0867D; --warn:#E0AE55; --band:#252136;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:16px/1.5 var(--sans)}
+header{padding:28px clamp(16px,4vw,48px) 8px}
+header h1{font:600 28px/1.2 var(--serif);margin:0}
+header p{margin:4px 0 0;color:var(--muted);max-width:68ch}
+main{display:grid;grid-template-columns:minmax(290px,350px) 1fr;gap:20px;padding:16px clamp(16px,4vw,48px) 48px;align-items:start}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+section{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px}
+h2{font:600 18px/1.3 var(--serif);margin:0 0 10px}
+h3{font:600 15px var(--sans);margin:16px 0 4px}
+label{display:block;font-size:14px;color:var(--muted);margin:10px 0 2px}
+select,input{width:100%;padding:8px 10px;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px}
+select:focus-visible,input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:500 15px var(--sans);padding:9px 14px;border-radius:4px;border:1px solid var(--accent);background:var(--accent);color:#fff;cursor:pointer}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button.primary{color:#160f33}}
+button.ghost{background:transparent;color:var(--accent)}
+.actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.group{margin-top:16px;padding-top:12px;border-top:1px solid var(--line)}
+.note{color:var(--muted);font-size:14px;margin:6px 0 0;max-width:74ch}
+.err{color:var(--down);font-weight:500}
+#out{display:grid;gap:20px}
+.hide{display:none}
+.headline{font:500 21px/1.45 var(--serif);max-width:60ch}
+.chip{display:inline-block;font-size:13px;font-weight:600;padding:2px 10px;border-radius:999px;border:1px solid currentColor;margin-bottom:10px}
+.chip.real{color:var(--accent)} .chip.noise{color:var(--warn)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:16px}
+.card{border-left:5px solid var(--line);padding:2px 0 2px 12px}
+.card .k{font-size:13px;color:var(--muted)} .card .v{font:600 22px/1.2 var(--serif)}
+.card.down{border-color:var(--down)} .card.upc{border-color:var(--up)}
+svg{width:100%;height:auto;display:block}
+svg text{fill:var(--ink);font:12px var(--sans)}
+svg .m{fill:var(--muted)}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:500}
+.scroll{overflow-x:auto}
+.cause{padding:10px 0;border-bottom:1px solid var(--line)}
+.cause:last-child{border-bottom:0}
+.cause b{font-weight:600}
+.cause .sub{color:var(--muted);font-size:14px}
+.key{border:1px dashed var(--accent);border-radius:4px;padding:10px 12px;margin-top:12px;font-size:14px}
+.split{display:flex;height:22px;border-radius:3px;overflow:hidden;margin:8px 0 4px;background:var(--band)}
+.split div{height:100%}
+.dim{display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.dim select{width:auto}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Metric Movement Explainer</h1>
+  <p>A metric moved. Was it real, and what caused it? Pick two periods and the tool finds the segments that explain the change.</p>
+</header>
+<main>
+  <section aria-label="Settings">
+    <h2>Data</h2>
+    <label for="demo">Demo dataset (with a hidden cause)</label>
+    <select id="demo"></select>
+    <p class="note" id="demodesc"></p>
+    <div class="actions"><button class="ghost" id="loaddemo" type="button">Load demo</button></div>
+    <label for="file">Or your own orders CSV</label>
+    <input id="file" type="file" accept=".csv">
+    <p class="note">Needs a <b>date</b> column and a <b>revenue</b> column. One row per order. Other text columns become dimensions.</p>
+    <p class="note" id="info"></p>
+
+    <div class="group">
+      <h2>Question</h2>
+      <label for="metric">Metric</label>
+      <select id="metric">
+        <option value="revenue">Revenue</option>
+        <option value="orders">Orders</option>
+        <option value="aov">Average order value</option>
+      </select>
+      <div class="row2">
+        <div><label for="bs">Before: from</label><input id="bs" type="date"></div>
+        <div><label for="be">Before: to</label><input id="be" type="date"></div>
+        <div><label for="as">After: from</label><input id="as" type="date"></div>
+        <div><label for="ae">After: to</label><input id="ae" type="date"></div>
+      </div>
+      <p class="note">Use periods of equal length that cover whole weeks. Then each day is compared with the same weekday.</p>
+      <div class="actions"><button class="primary" id="run" type="button">Explain the change</button></div>
+      <p id="err" class="err" role="alert"></p>
+    </div>
+  </section>
+
+  <div id="out">
+    <section id="empty"><h2>Result</h2><p class="note">Load a dataset and press “Explain the change”.</p></section>
+
+    <section id="res" class="hide" aria-live="polite">
+      <span id="chip" class="chip"></span>
+      <div class="headline" id="headline"></div>
+      <div class="cards" id="cards"></div>
+      <div id="notes" class="note"></div>
+      <div id="split"></div>
+      <div id="key"></div>
+    </section>
+
+    <section id="wfbox" class="hide">
+      <h2>Where the change came from</h2>
+      <div class="dim"><label for="dimsel" style="margin:0">Split by</label><select id="dimsel"></select></div>
+      <div id="wf"></div>
+      <p class="note" id="wfnote"></p>
+    </section>
+
+    <section id="cbox" class="hide">
+      <h2>Likely causes</h2>
+      <div id="causes"></div>
+      <p class="note" id="cnote"></p>
+    </section>
+
+    <section id="dbox" class="hide">
+      <h2>Which dimension is the odd one?</h2>
+      <div class="scroll"><div id="dtable"></div></div>
+      <p class="note">Surprise measures how much the split of the metric across this dimension changed. A larger value means a more unusual shift. “Explained by top” is the share of the change covered by the few segments that moved most.</p>
+    </section>
+
+    <section>
+      <h2>Does the tool find the truth?</h2>
+      <p class="note">We inject a known cause into fake orders, run the tool, and check whether it finds it. About 15 runs per case, around 15 seconds.</p>
+      <div class="actions"><button class="ghost" id="study" type="button">Run recovery study</button></div>
+      <div class="scroll" id="studyout"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const pc = (v, d = 1) => (v * 100).toFixed(d) + "%";
+const spc = v => (v >= 0 ? "+" : "") + (v * 100).toFixed(1) + "%";
+let metric = "revenue", result = null, incidents = {};
+const num = v => Math.abs(v) >= 100 ? Math.round(v).toLocaleString() : v.toFixed(2);
+const snum = v => (v >= 0 ? "+" : "-") + num(Math.abs(v));
+
+async function api(url, body) {
+  const r = await fetch(url, body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : undefined);
+  const j = await r.json();
+  if (!r.ok) throw new Error(typeof j.detail === "string" ? j.detail : "Check your inputs.");
+  return j;
+}
+
+function setInfo(i) {
+  $("bs").value = i.windows.before_start; $("be").value = i.windows.before_end;
+  $("as").value = i.windows.after_start; $("ae").value = i.windows.after_end;
+  $("info").textContent = `${i.source}: ${i.rows.toLocaleString()} orders, ${i.start} to ${i.end}. Dimensions: ${i.dimensions.join(", ")}.`;
+  if (i.suggested_metric) { $("metric").value = i.suggested_metric; }
+}
+
+(async () => {
+  const m = await api("/meta"); incidents = m.incidents;
+  $("demo").innerHTML = Object.keys(incidents).map(k => `<option value="${k}">${k.replace(/_/g, " ")}</option>`).join("");
+  $("demo").value = m.info.source.startsWith("demo: ") ? m.info.source.slice(6) : "channel_outage";
+  $("demodesc").textContent = "Hidden cause: " + incidents[$("demo").value];
+  setInfo(m.info);
+})();
+$("demo").onchange = () => $("demodesc").textContent = "Hidden cause: " + incidents[$("demo").value];
+$("loaddemo").onclick = async () => {
+  $("err").textContent = "";
+  try { setInfo(await api("/demo", { incident: $("demo").value, seed: 1 + Math.floor(Math.random() * 900) })); clearResult(); }
+  catch (e) { $("err").textContent = e.message; }
+};
+$("file").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  $("err").textContent = "";
+  try { setInfo(await api("/dataset", { csv: await f.text() })); clearResult(); }
+  catch (e) { $("err").textContent = e.message; }
+};
+function clearResult() { ["res", "wfbox", "cbox", "dbox"].forEach(i => $(i).classList.add("hide")); $("empty").classList.remove("hide"); }
+
+// ----- horizontal waterfall -----
+function waterfall(dim, r) {
+  const t = r.total, segs = dim.segments.filter(s => Math.abs(s.delta) > 0);
+  const top = segs.slice(0, 7), rest = segs.slice(7).reduce((a, s) => a + s.delta, 0);
+  const rows = [{ name: "Before", kind: "total", from: null, to: t.before }];
+  let cum = t.before;
+  top.forEach(s => { rows.push({ name: s.key.join(" / "), kind: "delta", from: cum, to: cum + s.delta }); cum += s.delta; });
+  if (Math.abs(rest) > 1e-9) { rows.push({ name: "all other", kind: "delta", from: cum, to: cum + rest }); cum += rest; }
+  rows.push({ name: "After", kind: "total", from: null, to: t.after });
+  const vals = rows.flatMap(x => x.from == null ? [x.to] : [x.from, x.to]);
+  let lo = Math.min(...vals), hi = Math.max(...vals); const pad = (hi - lo) * 0.18 || 1; lo -= pad; hi += pad;
+  const W = 640, L = 150, R = 20, rowH = 30, T = 8, H = T + rows.length * rowH + 26;
+  const x = v => L + (v - lo) / (hi - lo) * (W - L - R);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Waterfall from before to after">`;
+  rows.forEach((row, i) => {
+    const y = T + i * rowH + 4, h = rowH - 10;
+    s += `<text x="${L - 8}" y="${y + h / 2 + 4}" text-anchor="end">${esc(row.name)}</text>`;
+    if (row.kind === "total") {
+      s += `<rect x="${L}" y="${y}" width="${x(row.to) - L}" height="${h}" fill="var(--accent)" opacity=".85"/>`;
+      s += `<text x="${x(row.to) + 5}" y="${y + h / 2 + 4}">${num(row.to)}</text>`;
+    } else {
+      const a = Math.min(row.from, row.to), b = Math.max(row.from, row.to), col = row.to >= row.from ? "var(--up)" : "var(--down)";
+      s += `<rect x="${x(a)}" y="${y}" width="${Math.max(2, x(b) - x(a))}" height="${h}" fill="${col}"/>`;
+      s += `<text x="${x(b) + 5}" y="${y + h / 2 + 4}">${snum(row.to - row.from)}</text>`;
+      s += `<line x1="${x(row.to)}" x2="${x(row.to)}" y1="${y + h}" y2="${y + rowH}" stroke="var(--line)"/>`;
+    }
+  });
+  return s + `</svg>`;
+}
+function drawWf() {
+  if (!result) return;
+  const dim = result.dimensions.find(d => d.dimension === $("dimsel").value);
+  $("wf").innerHTML = waterfall(dim, result);
+  $("wfnote").textContent = "The axis does not start at zero, so the small changes are visible. Every bar is one segment's contribution. The bars add up to the total change.";
+}
+$("dimsel").onchange = drawWf;
+
+// ----- explain -----
+$("run").onclick = async () => {
+  $("err").textContent = "";
+  try {
+    metric = $("metric").value;
+    const r = result = await api("/explain", { metric, before_start: $("bs").value, before_end: $("be").value, after_start: $("as").value, after_end: $("ae").value });
+    const t = r.total;
+    ["res", "wfbox", "cbox", "dbox"].forEach(i => $(i).classList.remove("hide")); $("empty").classList.add("hide");
+    $("chip").className = "chip " + (t.real ? "real" : "noise");
+    $("chip").textContent = t.real ? "Real change" : "Within normal variation";
+    $("headline").textContent = r.summary;
+    const dn = t.delta < 0, card = (k, v, c = "") => `<div class="card ${c}"><div class="k">${k}</div><div class="v">${v}</div></div>`;
+    $("cards").innerHTML = card("Before", num(t.before)) + card("After", num(t.after)) +
+      card("Change", spc(t.pct_change), dn ? "down" : "upc") +
+      card("Plausible range", `${spc(t.ci_low)} to ${spc(t.ci_high)}`) +
+      card("Permutation p-value", t.p_value < 0.001 ? "< 0.001" : t.p_value.toFixed(3));
+    $("notes").textContent = t.notes.join(" ");
+    if (metric === "revenue") {
+      const v = t.volume_effect, u = t.value_effect, tot = Math.abs(v) + Math.abs(u) || 1;
+      $("split").innerHTML = `<h3>Fewer orders, or smaller orders?</h3><div class="split" role="img" aria-label="Volume and value effect">` +
+        `<div style="width:${Math.abs(v) / tot * 100}%;background:var(--accent)"></div><div style="width:${Math.abs(u) / tot * 100}%;background:var(--warn)"></div></div>` +
+        `<div class="note">Order volume effect <b>${snum(v)}</b> (purple). Order value effect <b>${snum(u)}</b> (amber). Together they equal the total change.</div>`;
+    } else $("split").innerHTML = "";
+    const tr = r.info && r.info.truth;
+    $("key").innerHTML = tr ? `<div class="key"><b>Answer key (demo only):</b> the injected cause was <b>${esc(Object.entries(tr).map(([k, v]) => k + " = " + v).join(" and "))}</b>.</div>` : "";
+
+    $("dimsel").innerHTML = r.dimensions.map(d => `<option value="${d.dimension}">${d.dimension.replace(/_/g, " ")}</option>`).join("");
+    drawWf();
+    $("causes").innerHTML = r.causes.length ? r.causes.map((c, i) => `<div class="cause"><b>${i + 1}. ${esc(c.label)}</b>` +
+      `<div class="sub">Contributes ${snum(c.contribution)} (${(c.share_of_change * 100).toFixed(0)}% of the change). ` +
+      `${c.pct_change == null ? "" : "Its own " + (metric === "aov" ? "order value" : "level") + " changed " + spc(c.pct_change) + ". "}Reason: ${esc(c.kind)}.</div></div>`).join("")
+      : `<p class="note">No segment stands out.</p>`;
+    $("cnote").textContent = t.real ? "Only segments that moved in the same direction as the total are listed. Lower entries are weaker and may be noise." :
+      "The overall change is within normal variation, so these are probably noise. Do not act on them.";
+    $("dtable").innerHTML = `<table><tr><th>Dimension</th><th>Surprise</th><th>Explained by top segments</th><th>Top segments</th></tr>` +
+      r.dimensions.map(d => `<tr><td>${esc(d.dimension)}</td><td>${d.surprise.toFixed(4)}</td><td>${pc(d.explained_by_top, 0)}</td><td>${esc(d.top_segments.join(", ") || "-")}</td></tr>`).join("") + `</table>`;
+  } catch (e) { $("err").textContent = e.message; }
+};
+
+// ----- study -----
+$("study").onclick = async () => {
+  $("studyout").innerHTML = `<p class="note">Running. Please wait.</p>`;
+  try {
+    const d = await api("/study/recovery");
+    const f = v => v == null ? "-" : pc(v, 0);
+    $("studyout").innerHTML = `<table><tr><th>Injected incident</th><th>Flagged as real</th><th>Right cause ranked 1st</th><th>In top 3</th><th>Naive method, 1st</th></tr>` +
+      d.rows.map(r => `<tr><td>${esc(r.incident.replace(/_/g, " "))}</td><td>${pc(r.flagged_real_rate, 0)}</td><td>${f(r.top1)}</td><td>${f(r.top3)}</td><td>${f(r.raw_baseline_top1)}</td></tr>`).join("") + `</table>
+      <p class="note">${d.n_per_incident} runs per row. For “none”, the flagged rate is the false alarm rate (target about 5%). Smaller incidents are flagged less often because 14 days of noisy data cannot prove a small change. The naive method picks the single segment with the biggest raw change.</p>`;
+  } catch (e) { $("studyout").innerHTML = `<p class="err">${esc(e.message)}</p>`; }
+};
+</script>
+</body>
+</html>
